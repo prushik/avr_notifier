@@ -48,14 +48,20 @@ void uart_putchar(unsigned char c) {
 
 void uart_write(char *data, unsigned int len)
 {
-	PORTB = 0x20;
+//	PORTB |= 0x20;
 	int i;
 	for (i=0; i < len; i++)
 	{
 		uart_putchar(data[i]);
 //		_delay_ms(10);
 	}
-	PORTB = 0x00;
+//	PORTB &= ~0x20;
+}
+
+char uart_getchar()
+{
+	loop_until_bit_is_set(UCSR0A, RXC0); /* Wait until data exists. */
+	return UDR0;
 }
 
 void i2c_init()
@@ -152,55 +158,100 @@ void i2c_scan()
 
 void spi_init()
 {
-	char clr;
-	SPCR |= ( (1<<SPE) | (1<<MSTR) ); // enable SPI as master
+/*	SPCR |= ( (1<<SPE) | (1<<MSTR) ); // enable SPI as master
 	//SPCR |= ( (1<<SPR1) | (1<<SPR0) ); // set prescaler bits
 	SPCR &= ~( (1<<SPR1) | (1<<SPR0) ); // clear prescaler bits
-	clr = SPSR; // clear SPI status reg
-	clr = SPDR; // clear SPI data reg
-	SPSR |= (1<<SPI2X); // set prescaler bits
-	//SPSR &= ~(1<<SPI2X); // clear prescaler bits
-
-	_delay_ms(50);
+	SPSR = 0; // clear SPI status reg
+	SPDR = 0; // clear SPI data reg
+//	SPSR |= (1<<SPI2X); // set prescaler bits
+	//SPSR &= ~(1<<SPI2X); // clear prescaler bits*/
 }
 
+void spi_transfer(unsigned char data)
+{
+	int i;
+	for (i=0; i<8; i++)
+	{
+		if (data & 1)
+			PORTB |= SHIFT_DATA;
+		else
+			PORTB &= ~SHIFT_DATA;
+
+		data = data>>1;
+
+		PORTB |= SHIFT_CLOCK;
+		PORTB &= ~SHIFT_CLOCK;
+	}
+}
+/*
 char spi_transfer(char data)
 {
 	SPDR = data;					// Start the transmission
 	while (!(SPSR & (1<<SPIF))) ;	// Wait the end of the transmission
 	return SPDR;					// return the received byte, we don't need that
-}
+}*/
 
 static char buffer[6][3] = {0};
 
 void display_buffer()
 {
 	int i;
-	PORTB = PORTB | DECADE_RESET;
-	PORTB = PORTB & (~DECADE_RESET);
 
+	_delay_ms(100);
+	PORTB &= (~DECADE_RESET);
 
 	for (i = 0; i < 6; i++)
 	{
-		PORTB = PORTB & (~SHIFT_LATCH);
+		PORTB |= SHIFT_LATCH;
+		_delay_ms(100);
 		spi_transfer(buffer[i][0]);
+		_delay_ms(100);
 		spi_transfer(buffer[i][1]);
+		_delay_ms(100);
 		spi_transfer(buffer[i][2]);
-		PORTB = PORTB | SHIFT_LATCH;
+		_delay_ms(100);
+		PORTB &= (~SHIFT_LATCH);
 
-		_delay_ms(10);//waiting a bit
+		_delay_ms(400);//waiting a bit
 
-//		PORTB = PORTB | SHIFT_LATCH;
-//		spi_transfer(0);// clearing the data
-//		spi_transfer(0);
-//		spi_transfer(0);
-//		PORTB = PORTB & (~SHIFT_LATCH);
+/*		PORTB |= SHIFT_LATCH;
+		_delay_ms(100);
+		spi_transfer(0xff);// clearing the data
+		spi_transfer(0xff);
+		spi_transfer(0xff);
+		_delay_ms(100);
+		PORTB &= (~SHIFT_LATCH);*/
 
 		// next line
-		PORTB = PORTB | DECADE_CLOCK;
-		_delay_ms(10);//waiting a bit
-		PORTB = PORTB & (~DECADE_CLOCK);
+/*		if (uart_getchar() == ' ')
+		{
+			buffer[i][0] = 0x00;
+			buffer[i][1] = 0x00;
+			buffer[i][2] = 0x00;
+		}
+		else
+		{
+			buffer[i][0] = 0xff;
+			buffer[i][1] = 0xff;
+			buffer[i][2] = 0xff;
+		}*/
+
+//		PORTB &= (~SHIFT_LATCH);
+
+		PORTB &= (~DECADE_CLOCK);
+		_delay_ms(100);//waiting a bit
+		PORTB |= DECADE_CLOCK;
+//		_delay_ms(100);
+//		PORTB |= DECADE_CLOCK;
+//		_delay_ms(100);//waiting a bit
+//		PORTB &= (~DECADE_CLOCK);
+//		_delay_ms(100);
+
+		uart_write(".", 1);
 	}
+
+	PORTB |= DECADE_RESET;
+//	uart_write("\r\n", 2);
 }
 
 /*
@@ -261,15 +312,15 @@ int main()
 	unsigned char out[] = "x: XXXX y: XXXX z: XXXX t: XXXX\n";
 
 //	DDRB = 0x20; // built-in LED is output
-	DDRB = 0x2F; // PINS 8, 9, 10, 11, and 13 are all output
+	DDRB |= (DECADE_RESET | DECADE_CLOCK | SHIFT_CLOCK | SHIFT_DATA | SHIFT_LATCH); // PINS 8, 9, 10, 11, and 13 are all output
 
-	uart_init();
+//	uart_init();
 //	i2c_init();
 
 	// Reset the decade counter
-	PORTB = 0x01;
-	_delay_ms(50);
-	PORTB = 0x00;
+	PORTB |= DECADE_RESET;
+	_delay_ms(10);
+	PORTB &= ~DECADE_RESET;
 
 	spi_init();
 
@@ -298,10 +349,7 @@ int main()
 //		for (i=0;i<250;i++)
 //		_delay_ms(50);
 //		if (PIND & 0x08)
-		if (toggle)
-		{
-			toggle = 0;
-
+/*
 			out[2] = (data[0] & 0x80) ? '-' : '+';
 			out[3] = inttohex[data[0]>>4 & 0x0f];
 			out[4] = inttohex[data[0]>>0 & 0x0f];
@@ -319,15 +367,9 @@ int main()
 			out[20] = inttohex[data[4]>>0 & 0x0f];
 			out[21] = inttohex[data[5]>>4 & 0x0f];
 			out[22] = inttohex[data[5]>>0 & 0x0f];
-
+*/
 			display_buffer();
 
 //			uart_write(out, 32);
-		}
-		else
-		{
-			toggle = 0x20;
-//			uart_write("-\n", 2);
-		}
 	}
 }
