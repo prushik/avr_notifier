@@ -158,15 +158,15 @@ void i2c_scan()
 
 void spi_init()
 {
-/*	SPCR |= ( (1<<SPE) | (1<<MSTR) ); // enable SPI as master
+	SPCR |= ( (1<<SPE) | (1<<MSTR) ); // enable SPI as master
 	//SPCR |= ( (1<<SPR1) | (1<<SPR0) ); // set prescaler bits
 	SPCR &= ~( (1<<SPR1) | (1<<SPR0) ); // clear prescaler bits
 	SPSR = 0; // clear SPI status reg
 	SPDR = 0; // clear SPI data reg
 //	SPSR |= (1<<SPI2X); // set prescaler bits
-	//SPSR &= ~(1<<SPI2X); // clear prescaler bits*/
+	//SPSR &= ~(1<<SPI2X); // clear prescaler bits
 }
-
+/*
 void spi_transfer(unsigned char data)
 {
 	int i;
@@ -182,64 +182,123 @@ void spi_transfer(unsigned char data)
 		PORTB |= SHIFT_CLOCK;
 		PORTB &= ~SHIFT_CLOCK;
 	}
-}
-/*
+}*/
+
 char spi_transfer(char data)
 {
 	SPDR = data;					// Start the transmission
 	while (!(SPSR & (1<<SPIF))) ;	// Wait the end of the transmission
 	return SPDR;					// return the received byte, we don't need that
-}*/
+}
 
-static char buffer[6][3] = {0};
+unsigned char buffer[8][8] = {0};
+
+void control()
+{
+	switch (uart_getchar())
+	{
+		case 'r':
+			PORTB |= DECADE_RESET;
+			_delay_ms(100);
+			PORTB &= (~DECADE_RESET);
+			break;
+		case 'l':
+			PORTB |= SHIFT_LATCH;
+			break;
+		case 'L':
+			PORTB &= ~SHIFT_LATCH;
+			break;
+		case '1':
+			spi_transfer(0xff);
+			_delay_ms(100);
+			spi_transfer(0xff);
+			_delay_ms(100);
+			spi_transfer(0xff);
+			break;
+		case '0':
+			spi_transfer(0x00);
+			_delay_ms(100);
+			spi_transfer(0x00);
+			_delay_ms(100);
+			spi_transfer(0x00);
+			break;
+		case '5':
+			spi_transfer(0x55);
+			_delay_ms(100);
+			spi_transfer(0x55);
+			_delay_ms(100);
+			spi_transfer(0x55);
+			break;
+		case '6':
+			spi_transfer(0x66);
+			_delay_ms(100);
+			spi_transfer(0x66);
+			_delay_ms(100);
+			spi_transfer(0x66);
+			break;
+		case 'd':
+			PORTB &= (~DECADE_CLOCK);
+			break;
+		case 'D':
+			PORTB |= (DECADE_CLOCK);
+			break;
+		default:
+			PORTB &= (~DECADE_CLOCK);
+			_delay_ms(100);//waiting a bit
+			PORTB |= DECADE_CLOCK;
+			break;
+	}
+	uart_write(".", 1);
+}
 
 void display_buffer()
 {
 	int i;
 
-	_delay_ms(100);
+	PORTB |= DECADE_RESET;
+//	_delay_ms(2);
 	PORTB &= (~DECADE_RESET);
 
 	for (i = 0; i < 6; i++)
 	{
 		PORTB |= SHIFT_LATCH;
-		_delay_ms(100);
+//		_delay_ms(100);
 		spi_transfer(buffer[i][0]);
-		_delay_ms(100);
+//		_delay_ms(100);
 		spi_transfer(buffer[i][1]);
-		_delay_ms(100);
+//		_delay_ms(100);
 		spi_transfer(buffer[i][2]);
-		_delay_ms(100);
+//		_delay_ms(100);
 		PORTB &= (~SHIFT_LATCH);
 
-		_delay_ms(400);//waiting a bit
+//		_delay_ms(4);//waiting a bit
 
-/*		PORTB |= SHIFT_LATCH;
-		_delay_ms(100);
-		spi_transfer(0xff);// clearing the data
-		spi_transfer(0xff);
-		spi_transfer(0xff);
-		_delay_ms(100);
-		PORTB &= (~SHIFT_LATCH);*/
+//		PORTB |= SHIFT_LATCH;
+//		_delay_ms(100);
+//		spi_transfer(0x00);// clearing the data
+//		spi_transfer(0x00);
+//		spi_transfer(0x00);
+//		_delay_ms(100);
+//		PORTB &= (~SHIFT_LATCH);
 
 		// next line
-/*		if (uart_getchar() == ' ')
+/*		if (uart_getchar() != ' ')
 		{
-			buffer[i][0] = 0x00;
-			buffer[i][1] = 0x00;
-			buffer[i][2] = 0x00;
+			buffer[i][0] = 0x7e;
+			buffer[i][1] = 0x7e;
+			buffer[i][2] = 0x7e;
 		}
 		else
 		{
-			buffer[i][0] = 0xff;
-			buffer[i][1] = 0xff;
-			buffer[i][2] = 0xff;
+			buffer[i][0] = 0x66;
+			buffer[i][1] = 0x66;
+			buffer[i][2] = 0x66;
 		}*/
 
 //		PORTB &= (~SHIFT_LATCH);
 
 		PORTB &= (~DECADE_CLOCK);
-		_delay_ms(100);//waiting a bit
+//		_delay_ms(10);//waiting a bit
 		PORTB |= DECADE_CLOCK;
 //		_delay_ms(100);
 //		PORTB |= DECADE_CLOCK;
@@ -247,10 +306,10 @@ void display_buffer()
 //		PORTB &= (~DECADE_CLOCK);
 //		_delay_ms(100);
 
-		uart_write(".", 1);
+//		uart_write(".", 1);
 	}
 
-	PORTB |= DECADE_RESET;
+//	PORTB |= DECADE_RESET;
 //	uart_write("\r\n", 2);
 }
 
@@ -304,6 +363,13 @@ void display_word(int loops, byte word_print[][6], int num_patterns, int delay_l
 	finish_scroll(delay_langth);
 }*/
 
+void _buffer(int i, unsigned char a, unsigned char b, unsigned char c)
+{
+	buffer[i][0] = a;
+	buffer[i][1] = b;
+	buffer[i][2] = c;
+}
+
 int main()
 {
 	unsigned int toggle = 0, i;
@@ -331,13 +397,20 @@ int main()
 
 	_delay_ms(100);
 
-	for (i = 0; i < 6; i++)
-	{
-		buffer[i][0] = 0xff;
-		buffer[i][1] = 0xff;
-		buffer[i][2] = 0xff;
-	}
+	_buffer(0, 0x70, 0x00, 0x00);
+	_buffer(1, 0x88, 0x00, 0x20);
+	_buffer(2, 0x80, 0x00, 0x00);
+	_buffer(3, 0x81, 0x19, 0xac);
+	_buffer(4, 0x8a, 0xa2, 0xaa);
+	_buffer(5, 0x71, 0x19, 0xaa);
 
+/*	buffer[0][0]=0x7E;
+	buffer[0][2]=0x7E;
+	buffer[1][0]=0x3c;
+	buffer[1][2]=0x3c;
+	buffer[2][0]=0x18;
+	buffer[2][2]=0x18;
+*/
 //	i2c_scan();
 
 //	for (i=0; i<0xff; i++)
@@ -369,6 +442,7 @@ int main()
 			out[22] = inttohex[data[5]>>0 & 0x0f];
 */
 			display_buffer();
+//			control();
 
 //			uart_write(out, 32);
 	}
