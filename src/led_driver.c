@@ -46,6 +46,11 @@ void uart_putchar(unsigned char c) {
 	loop_until_bit_is_set(UCSR0A, TXC0); /* Wait until transmission ready. */
 }
 
+// same thing, but don't block
+void uart_send_char(unsigned char c) {
+	UDR0 = c;
+}
+
 void uart_write(char *data, unsigned int len)
 {
 //	PORTB |= 0x20;
@@ -63,6 +68,24 @@ char uart_getchar()
 	loop_until_bit_is_set(UCSR0A, RXC0); /* Wait until data exists. */
 	return UDR0;
 }
+
+char uart_read_char(unsigned char *a)
+{
+	if (UCSR0A & _BV(RXC0))
+	{
+		*a = UDR0;
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+//char uart_read(unsigned char *buf, unsigned char len)
+//{
+//	
+//}
 
 void i2c_init()
 {
@@ -270,6 +293,9 @@ void display_buffer()
 		spi_transfer(buffer[i][2]);
 //		_delay_ms(100);
 		PORTB &= (~SHIFT_LATCH);
+		_delay_us(50);
+		PORTB |= DECADE_CLOCK;
+		PORTB &= (~DECADE_CLOCK);
 
 //		_delay_ms(4);//waiting a bit
 
@@ -297,9 +323,7 @@ void display_buffer()
 
 //		PORTB &= (~SHIFT_LATCH);
 
-		PORTB &= (~DECADE_CLOCK);
 //		_delay_ms(10);//waiting a bit
-		PORTB |= DECADE_CLOCK;
 //		_delay_ms(100);
 //		PORTB |= DECADE_CLOCK;
 //		_delay_ms(100);//waiting a bit
@@ -313,55 +337,17 @@ void display_buffer()
 //	uart_write("\r\n", 2);
 }
 
-/*
-void display_word(int loops, byte word_print[][6], int num_patterns, int delay_langth)
+void scroll()
 {
-	// this function displays your symbols
-	i = 0;// resets the counter fot the 4017
-	for (int g = 0; g < 6; g++)//resets the the long int where your word goes
-		scrolling_word[g] = 0;
-	for (int x = 0; x < num_patterns; x++)
-	{ //main loop, goes over your symbols
-		// you will need to find a better way to make the symbols scroll my way is limited for 24 columns
-
-		for (int r = 0; r < 6; r++)//puts the buildes the first symbol
-			scrolling_word[r] |= word_print[x][r]; 
-		for (int z = 0; z < 6; z++)
-		{ //the sctolling action
-			for (int p = 0; p < 6; p++)
-				scrolling_word[p] = scrolling_word[p] << 1;
-			// end of the scrolling funcion
-			for (int t = 0; t < delay_langth; t++)
-			{ // delay function, it just loops over the same display
-				for (int y = 0; y < 6; y++)
-				{// scaning the display
-					if (i == 6)
-					{// counting up to 6 with the 4017
-						PORTB = PORTB | DECADE_RESET;
-						PORTB = PORTB & (~DECADE_RESET);
-						i = 0;
-					}
-					PORTB = PORTB & (~SHIFT_LATCH);
-					spi_transfer(make_word(0x01000000, y));// sending the data
-					spi_transfer(make_word(0x00010000, y));
-					spi_transfer(make_word(0x00000100, y));
-					PORTB = PORTB | SHIFT_LATCH;
-					_delay_ms(800);//waiting a bit
-					PORTB = PORTB & (~SHIFT_LATCH);
-					spi_transfer(0);// clearing the data
-					spi_transfer(0);
-					spi_transfer(0);
-					PORTB = PORTB | SHIFT_LATCH;
-					
-					PORTB = PORTB | DECADE_CLOCK;
-					PORTB = PORTB & (~DECADE_CLOCK);
-					i++;
-				}
-			}
-		}
+	int i;
+	for (i=0;i<6;i++)
+	{
+		char carry = (buffer[i][2]&0x80)?1:0;
+		buffer[i][0] = (buffer[i][0]<<1) | ((buffer[i][1]&0x80)?1:0);
+		buffer[i][1] = (buffer[i][1]<<1) | ((buffer[i][2]&0x80)?1:0);
+		buffer[i][2] = (buffer[i][2]<<1) | carry;
 	}
-	finish_scroll(delay_langth);
-}*/
+}
 
 void _buffer(int i, unsigned char a, unsigned char b, unsigned char c)
 {
@@ -370,12 +356,63 @@ void _buffer(int i, unsigned char a, unsigned char b, unsigned char c)
 	buffer[i][2] = c;
 }
 
+#define STATE_OPEN 0
+#define STATE_DATA 1
+#define STATE_CMD 2
+static char cur_state = 0;
+static unsigned char last_byte = 0;
+static unsigned char state_count = 0;
+static char scrolling = 1;
+
+void handle_input()
+{
+	unsigned char input_byte;
+	if (uart_read_char(&input_byte))
+	{
+		switch (cur_state)
+		{
+			case STATE_OPEN:
+				if (input_byte == 'I')
+				{
+					cur_state = STATE_DATA;
+					state_count = 0;
+				}
+				if (input_byte == 'S')
+				{
+					scroll();
+				}
+				if (input_byte == 'B')
+				{
+					scrolling = 0;
+				}
+				if (input_byte == 'C')
+				{
+					scrolling = 1;
+				}
+				break;
+			case STATE_DATA:
+				if (state_count < 18)
+				{
+					buffer[state_count/3][state_count%3] = input_byte;
+					state_count += 1;
+				}
+				else
+				{
+					cur_state = STATE_OPEN;
+				}
+				break;
+			default:
+				break;
+		}
+	}
+}
+
 int main()
 {
-	unsigned int toggle = 0, i;
-	unsigned char data[8];
+//	unsigned int toggle = 0, i;
+//	unsigned char data[8];
 
-	unsigned char out[] = "x: XXXX y: XXXX z: XXXX t: XXXX\n";
+//	unsigned char out[] = "x: XXXX y: XXXX z: XXXX t: XXXX\n";
 
 //	DDRB = 0x20; // built-in LED is output
 	DDRB |= (DECADE_RESET | DECADE_CLOCK | SHIFT_CLOCK | SHIFT_DATA | SHIFT_LATCH); // PINS 8, 9, 10, 11, and 13 are all output
@@ -390,60 +427,25 @@ int main()
 
 	spi_init();
 
-	//turn on i2c pullup resistors
-	//no need, external resistors present
-//	PORTC = 0x30;
-//	PORTC = 0x00;
-
 	_delay_ms(100);
 
-	_buffer(0, 0x70, 0x00, 0x00);
-	_buffer(1, 0x88, 0x00, 0x20);
-	_buffer(2, 0x80, 0x00, 0x00);
-	_buffer(3, 0x81, 0x19, 0xac);
-	_buffer(4, 0x8a, 0xa2, 0xaa);
-	_buffer(5, 0x71, 0x19, 0xaa);
+	_buffer(0, 0x11, 0x11, 0x11);
+	_buffer(1, 0x22, 0x22, 0x22);
+	_buffer(2, 0x44, 0x44, 0x44);
+	_buffer(3, 0x44, 0x44, 0x44);
+	_buffer(4, 0x22, 0x22, 0x22);
+	_buffer(5, 0x11, 0x11, 0x11);
 
-/*	buffer[0][0]=0x7E;
-	buffer[0][2]=0x7E;
-	buffer[1][0]=0x3c;
-	buffer[1][2]=0x3c;
-	buffer[2][0]=0x18;
-	buffer[2][2]=0x18;
-*/
-//	i2c_scan();
-
-//	for (i=0; i<0xff; i++)
-//		print_stat(i);
+	unsigned char count=0;
 
 	while (1)
 	{
-//		PORTB = toggle;
-//		for (i=0;i<250;i++)
-//		_delay_ms(50);
-//		if (PIND & 0x08)
-/*
-			out[2] = (data[0] & 0x80) ? '-' : '+';
-			out[3] = inttohex[data[0]>>4 & 0x0f];
-			out[4] = inttohex[data[0]>>0 & 0x0f];
-			out[5] = inttohex[data[1]>>4 & 0x0f];
-			out[6] = inttohex[data[1]>>0 & 0x0f];
+		count++;
 
-			out[10] = (data[2] & 0x80) ? '-' : '+';
-			out[11] = inttohex[data[2]>>4 & 0x0f];
-			out[12] = inttohex[data[2]>>0 & 0x0f];
-			out[13] = inttohex[data[3]>>4 & 0x0f];
-			out[14] = inttohex[data[3]>>0 & 0x0f];
+		display_buffer();
+		if (!count & scrolling) {scroll();}
+//		control();
+		handle_input();
 
-			out[18] = (data[4] & 0x80) ? '-' : '+';
-			out[19] = inttohex[data[4]>>4 & 0x0f];
-			out[20] = inttohex[data[4]>>0 & 0x0f];
-			out[21] = inttohex[data[5]>>4 & 0x0f];
-			out[22] = inttohex[data[5]>>0 & 0x0f];
-*/
-			display_buffer();
-//			control();
-
-//			uart_write(out, 32);
 	}
 }
