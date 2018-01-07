@@ -5,12 +5,12 @@
 #include <unistd.h>
 
 unsigned char d[10][6] = {
-	{0x00,0x06,0x09,0x09,0x09,0x06},
+	{0x00,0x02,0x05,0x05,0x05,0x02},
 	{0x00,0x06,0x02,0x02,0x02,0x07},
 	{0x06,0x03,0x01,0x01,0x02,0x07},
 	{0x06,0x01,0x01,0x02,0x01,0x06},
 	{0x00,0x05,0x05,0x07,0x01,0x01},
-	{0x07,0x04,0x07,0x02,0x05,0x06},
+	{0x07,0x04,0x06,0x01,0x05,0x06},
 	{0x03,0x04,0x04,0x06,0x05,0x02},
 	{0x00,0x07,0x01,0x01,0x02,0x02},
 	{0x02,0x05,0x02,0x05,0x05,0x02},
@@ -123,7 +123,7 @@ int main()
 	set_interface_attribs (fd, B57600, 0);  // set speed to 115,200 bps, 8n1 (no parity)
 //	set_blocking (fd, 1);                // set blocking
 
-	buffer_digits(9614);
+	buffer_digits(58008);
 
 	int i,j;
 	for (i=0; i<50; i++)
@@ -134,13 +134,13 @@ int main()
 	{
 		for (j=0;j<3;j++)
 		{
-			usleep (200000);             // sleep enough to transmit the 7 plus
+			usleep (20000);             // sleep enough to transmit the 7 plus
 			write (fd, &buffer[i][j], 1);
 		}
 	}
-	usleep (20000);             // sleep enough to transmit the 7 plus
-//	write (fd, "C", 1);
-	write (fd, "CCCC", 4);
+	usleep (2000);             // sleep enough to transmit the 7 plus
+	write (fd, "C", 1);
+//	write (fd, "CCCC", 4);
 
 	usleep (99000);             // sleep enough to transmit the 7 plus
 	usleep (99000);             // sleep enough to transmit the 7 plus

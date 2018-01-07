@@ -230,7 +230,7 @@ void display_buffer()
 		spi_transfer(buffer[i][2]);
 //		_delay_ms(100);
 		PORTB &= (~SHIFT_LATCH);
-		_delay_us(50);
+//		_delay_us(50);
 		PORTB |= DECADE_CLOCK;
 		PORTB &= (~DECADE_CLOCK);
 
@@ -279,7 +279,7 @@ void scroll()
 	int i;
 	for (i=0;i<6;i++)
 	{
-		char carry = (buffer[i][2]&0x80)?1:0;
+		char carry = (buffer[i][0]&0x80)?1:0;
 		buffer[i][0] = (buffer[i][0]<<1) | ((buffer[i][1]&0x80)?1:0);
 		buffer[i][1] = (buffer[i][1]<<1) | ((buffer[i][2]&0x80)?1:0);
 		buffer[i][2] = (buffer[i][2]<<1) | carry;
@@ -373,14 +373,15 @@ int main()
 	_buffer(4, 0x22, 0x22, 0x22);
 	_buffer(5, 0x11, 0x11, 0x11);
 
-	unsigned char count=0;
+	unsigned char count_1=0,count_2=0;
 
 	while (1)
 	{
-		count++;
+		count_1++;
 
 		display_buffer();
-		if (!count & scrolling) {scroll();}
+		if (!count_1 & scrolling) {count_2++;}
+		if ((count_2>50) & scrolling) {count_2=1; scroll();}
 //		control();
 		handle_input();
 	}
