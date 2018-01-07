@@ -3,11 +3,6 @@
 
 #define BAUD 9600
 
-#define MPU_ADDR 0x68
-#define MPU_WAKEUP 0x6b
-#define MPU_XOUT_H 0x3b
-#define MPU_TEMP_H 0x41
-
 // THESE ARE ALL IN PORTB
 // pin 8
 #define DECADE_RESET 0x01
@@ -214,65 +209,7 @@ char spi_transfer(char data)
 	return SPDR;					// return the received byte, we don't need that
 }
 
-unsigned char buffer[8][8] = {0};
-
-void control()
-{
-	switch (uart_getchar())
-	{
-		case 'r':
-			PORTB |= DECADE_RESET;
-			_delay_ms(100);
-			PORTB &= (~DECADE_RESET);
-			break;
-		case 'l':
-			PORTB |= SHIFT_LATCH;
-			break;
-		case 'L':
-			PORTB &= ~SHIFT_LATCH;
-			break;
-		case '1':
-			spi_transfer(0xff);
-			_delay_ms(100);
-			spi_transfer(0xff);
-			_delay_ms(100);
-			spi_transfer(0xff);
-			break;
-		case '0':
-			spi_transfer(0x00);
-			_delay_ms(100);
-			spi_transfer(0x00);
-			_delay_ms(100);
-			spi_transfer(0x00);
-			break;
-		case '5':
-			spi_transfer(0x55);
-			_delay_ms(100);
-			spi_transfer(0x55);
-			_delay_ms(100);
-			spi_transfer(0x55);
-			break;
-		case '6':
-			spi_transfer(0x66);
-			_delay_ms(100);
-			spi_transfer(0x66);
-			_delay_ms(100);
-			spi_transfer(0x66);
-			break;
-		case 'd':
-			PORTB &= (~DECADE_CLOCK);
-			break;
-		case 'D':
-			PORTB |= (DECADE_CLOCK);
-			break;
-		default:
-			PORTB &= (~DECADE_CLOCK);
-			_delay_ms(100);//waiting a bit
-			PORTB |= DECADE_CLOCK;
-			break;
-	}
-	uart_write(".", 1);
-}
+unsigned char buffer[6][3] = {0};
 
 void display_buffer()
 {
@@ -446,6 +383,5 @@ int main()
 		if (!count & scrolling) {scroll();}
 //		control();
 		handle_input();
-
 	}
 }

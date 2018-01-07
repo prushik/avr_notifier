@@ -4,6 +4,21 @@
 #include <termios.h>
 #include <unistd.h>
 
+unsigned char d[10][6] = {
+	{0x00,0x06,0x09,0x09,0x09,0x06},
+	{0x00,0x06,0x02,0x02,0x02,0x07},
+	{0x06,0x03,0x01,0x01,0x02,0x07},
+	{0x06,0x01,0x01,0x02,0x01,0x06},
+	{0x00,0x05,0x05,0x07,0x01,0x01},
+	{0x07,0x04,0x07,0x02,0x05,0x06},
+	{0x03,0x04,0x04,0x06,0x05,0x02},
+	{0x00,0x07,0x01,0x01,0x02,0x02},
+	{0x02,0x05,0x02,0x05,0x05,0x02},
+	{0x03,0x05,0x03,0x01,0x01,0x01}
+};
+
+static unsigned char buffer[6][3] = {0};
+
 int set_interface_attribs (int fd, int speed, int parity)
 {
         struct termios tty;
@@ -44,7 +59,7 @@ int set_interface_attribs (int fd, int speed, int parity)
         return 0;
 }
 
-void set_blocking (int fd, int should_block)
+void set_blocking(int fd, int should_block)
 {
         struct termios tty;
         memset (&tty, 0, sizeof tty);
@@ -54,83 +69,90 @@ void set_blocking (int fd, int should_block)
                 return;
         }
 
-        tty.c_cc[VMIN]  = should_block ? 1 : 0;
+        tty.c_cc[VMIN]  = should_block;
         tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
 
-//        if (tcsetattr (fd, TCSANOW, &tty) != 0)
+      tcsetattr (fd, TCSANOW, &tty);
 //                error_message ("error %d setting term attributes", errno);
+}
+
+void buffer_digits(int n)
+{
+	int i,j;
+	for (i=0; i<6; i++)
+	{
+		for (j=0; j<3; j++)
+		{
+			buffer[i][j] = 0;
+		}
+	}
+	while (n)
+	{
+		int digit = n%10;
+		n = n/10;
+
+		for (i=0;i<6;i++)
+		{
+			unsigned char carry = (buffer[i][2]>>4)&0x0f;
+			buffer[i][0] = (buffer[i][0]<<4); 
+			buffer[i][0] |= ((buffer[i][1]>>4)&0x0f);
+			buffer[i][1] = (buffer[i][1]<<4);
+			buffer[i][1] |= ((buffer[i][2]>>4)&0x0f);
+			buffer[i][2] = (buffer[i][2]<<4);
+//			buffer[i][2] |= carry;
+		}
+
+		for (i=0; i<6; i++)
+		{
+			buffer[i][2] |= d[digit][i];
+		}
+	}
 }
 
 int main()
 {
 	char *portname = "/dev/ttyUSB0";
 
-	int fd = open(portname, O_WRONLY);
+	int fd = open(portname, O_RDWR);
 	if (fd < 0)
 	{
 //			error_message ("error %d opening %s: %s", errno, portname, strerror (errno));
-			return;
+			return 1;
 	}
 
 	set_interface_attribs (fd, B57600, 0);  // set speed to 115,200 bps, 8n1 (no parity)
-	set_blocking (fd, 1);                // set no blocking
+//	set_blocking (fd, 1);                // set blocking
 
-	int i;
-	for (i=0; i<10; i++)
-		usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
+	buffer_digits(9614);
+
+	int i,j;
+	for (i=0; i<50; i++)
+		usleep (99000);             //We need to allow the avr to boot up
 
 	write (fd, "BI", 2);
-	for (i=0;i<18;i++)
+	for (i=0;i<6;i++)
 	{
-		usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-		write (fd, " ", 1);
+		for (j=0;j<3;j++)
+		{
+			usleep (200000);             // sleep enough to transmit the 7 plus
+			write (fd, &buffer[i][j], 1);
+		}
 	}
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	write (fd, "C", 1);
+	usleep (20000);             // sleep enough to transmit the 7 plus
+//	write (fd, "C", 1);
 	write (fd, "CCCC", 4);
 
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
-	usleep ((99) * 1000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
+	usleep (99000);             // sleep enough to transmit the 7 plus
 										 // receive 25:  approx 100 uS per char transmit
 //	char buf [100];
 //	int n = read (fd, buf, sizeof buf);  // read up to 100 characters if ready to read
