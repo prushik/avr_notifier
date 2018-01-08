@@ -222,56 +222,21 @@ void display_buffer()
 	for (i = 0; i < 6; i++)
 	{
 		PORTB |= SHIFT_LATCH;
-//		_delay_ms(100);
 		spi_transfer(buffer[i][0]);
-//		_delay_ms(100);
 		spi_transfer(buffer[i][1]);
-//		_delay_ms(100);
 		spi_transfer(buffer[i][2]);
-//		_delay_ms(100);
 		PORTB &= (~SHIFT_LATCH);
 //		_delay_us(50);
 		PORTB |= DECADE_CLOCK;
-		PORTB &= (~DECADE_CLOCK);
-
-//		_delay_ms(4);//waiting a bit
 
 //		PORTB |= SHIFT_LATCH;
-//		_delay_ms(100);
-//		spi_transfer(0x00);// clearing the data
-//		spi_transfer(0x00);
-//		spi_transfer(0x00);
-//		_delay_ms(100);
+//		spi_transfer(0);
+//		spi_transfer(0);
+//		spi_transfer(0);
 //		PORTB &= (~SHIFT_LATCH);
 
-		// next line
-/*		if (uart_getchar() != ' ')
-		{
-			buffer[i][0] = 0x7e;
-			buffer[i][1] = 0x7e;
-			buffer[i][2] = 0x7e;
-		}
-		else
-		{
-			buffer[i][0] = 0x66;
-			buffer[i][1] = 0x66;
-			buffer[i][2] = 0x66;
-		}*/
-
-//		PORTB &= (~SHIFT_LATCH);
-
-//		_delay_ms(10);//waiting a bit
-//		_delay_ms(100);
-//		PORTB |= DECADE_CLOCK;
-//		_delay_ms(100);//waiting a bit
-//		PORTB &= (~DECADE_CLOCK);
-//		_delay_ms(100);
-
-//		uart_write(".", 1);
+		PORTB &= (~DECADE_CLOCK);
 	}
-
-//	PORTB |= DECADE_RESET;
-//	uart_write("\r\n", 2);
 }
 
 void scroll()
@@ -346,15 +311,9 @@ void handle_input()
 
 int main()
 {
-//	unsigned int toggle = 0, i;
-//	unsigned char data[8];
-
-//	unsigned char out[] = "x: XXXX y: XXXX z: XXXX t: XXXX\n";
-
-//	DDRB = 0x20; // built-in LED is output
 	DDRB |= (DECADE_RESET | DECADE_CLOCK | SHIFT_CLOCK | SHIFT_DATA | SHIFT_LATCH); // PINS 8, 9, 10, 11, and 13 are all output
 
-//	uart_init();
+	uart_init();
 //	i2c_init();
 
 	// Reset the decade counter
