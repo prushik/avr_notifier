@@ -209,7 +209,7 @@ char spi_transfer(char data)
 	return SPDR;					// return the received byte, we don't need that
 }
 
-unsigned char buffer[6][3] = {0};
+unsigned char buffer[6][8] = {0};
 
 void display_buffer()
 {
@@ -251,6 +251,22 @@ void scroll()
 	}
 }
 
+void scroll_big()
+{
+	int i;
+	for (i=0;i<6;i++)
+	{
+		char carry = (buffer[i][0]&0x80)?1:0;
+		buffer[i][0] = (buffer[i][0]<<1) | ((buffer[i][1]&0x80)?1:0);
+		buffer[i][1] = (buffer[i][1]<<1) | ((buffer[i][2]&0x80)?1:0);
+		buffer[i][2] = (buffer[i][2]<<1) | ((buffer[i][3]&0x80)?1:0);
+		buffer[i][3] = (buffer[i][3]<<1) | ((buffer[i][4]&0x80)?1:0);
+		buffer[i][4] = (buffer[i][4]<<1) | ((buffer[i][5]&0x80)?1:0);
+		buffer[i][5] = (buffer[i][5]<<1) | ((buffer[i][6]&0x80)?1:0);
+		buffer[i][6] = (buffer[i][6]<<1) | carry;
+	}
+}
+
 void _buffer(int i, unsigned char a, unsigned char b, unsigned char c)
 {
 	buffer[i][0] = a;
@@ -262,8 +278,8 @@ void _buffer(int i, unsigned char a, unsigned char b, unsigned char c)
 #define STATE_DATA 1
 #define STATE_CMD 2
 static char cur_state = 0;
-static unsigned char last_byte = 0;
-static unsigned char state_count = 0;
+static unsigned char load_total = 3;
+static unsigned char load_count = 0;
 static char scrolling = 1;
 
 void handle_input()
@@ -274,29 +290,44 @@ void handle_input()
 		switch (cur_state)
 		{
 			case STATE_OPEN:
+				if (input_byte == 'i')
+				{
+					cur_state = STATE_DATA;
+					load_count = 0;
+					load_total = 3;
+				}
 				if (input_byte == 'I')
 				{
 					cur_state = STATE_DATA;
-					state_count = 0;
+					load_count = 0;
+					load_total = 8;
+				}
+				if (input_byte == 's')
+				{
+					scroll();
 				}
 				if (input_byte == 'S')
 				{
-					scroll();
+					scroll_big();
 				}
 				if (input_byte == 'B')
 				{
 					scrolling = 0;
 				}
-				if (input_byte == 'C')
+				if (input_byte == 'c')
 				{
 					scrolling = 1;
 				}
+				if (input_byte == 'C')
+				{
+					scrolling = 2;
+				}
 				break;
 			case STATE_DATA:
-				if (state_count < 18)
+				if (load_count < (load_total*6))
 				{
-					buffer[state_count/3][state_count%3] = input_byte;
-					state_count += 1;
+					buffer[load_count / load_total][load_count % load_total] = input_byte;
+					load_count += 1;
 				}
 				else
 				{
@@ -340,7 +371,7 @@ int main()
 
 		display_buffer();
 		if (!count_1 & scrolling) {count_2++;}
-		if ((count_2>50) & scrolling) {count_2=1; scroll();}
+		if ((count_2>50) & scrolling) {count_2=0; (scrolling == 1)?scroll():scroll_big();}
 //		control();
 		handle_input();
 	}
