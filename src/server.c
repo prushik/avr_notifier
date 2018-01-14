@@ -165,7 +165,7 @@ int main()
 	for (i=0; i<50; i++)
 		usleep(99000);             //We need to allow the avr to boot up
 
-	write (fd, "BI", 2);
+	write (fd, "Bi", 2);
 	for (i=0;i<6;i++)
 	{
 		for (j=0;j<3;j++)
@@ -186,7 +186,7 @@ int main()
 		long unsigned int xtime = (time(0)-(3600*5)) % 86400 ;
 		buffer_digits_l((xtime*10000) / 86400);
 
-		write(fd, "BI", 2);
+		write(fd, "Bi", 2);
 		for (i=0;i<6;i++)
 		{
 			for (j=0;j<3;j++)

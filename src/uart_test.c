@@ -184,23 +184,6 @@ void spi_init()
 //	SPSR |= (1<<SPI2X); // set prescaler bits
 	//SPSR &= ~(1<<SPI2X); // clear prescaler bits
 }
-/*
-void spi_transfer(unsigned char data)
-{
-	int i;
-	for (i=0; i<8; i++)
-	{
-		if (data & 1)
-			PORTB |= SHIFT_DATA;
-		else
-			PORTB &= ~SHIFT_DATA;
-
-		data = data>>1;
-
-		PORTB |= SHIFT_CLOCK;
-		PORTB &= ~SHIFT_CLOCK;
-	}
-}*/
 
 char spi_transfer(char data)
 {
@@ -209,168 +192,17 @@ char spi_transfer(char data)
 	return SPDR;					// return the received byte, we don't need that
 }
 
-unsigned char buffer[6][8] = {0};
-
-void display_buffer()
-{
-	int i;
-
-	PORTB |= DECADE_RESET;
-//	_delay_ms(2);
-	PORTB &= (~DECADE_RESET);
-
-	for (i = 0; i < 6; i++)
-	{
-		PORTB |= SHIFT_LATCH;
-		spi_transfer(buffer[i][0]);
-		spi_transfer(buffer[i][1]);
-		spi_transfer(buffer[i][2]);
-		PORTB &= (~SHIFT_LATCH);
-//		_delay_us(50);
-		PORTB |= DECADE_CLOCK;
-
-//		PORTB |= SHIFT_LATCH;
-//		spi_transfer(0);
-//		spi_transfer(0);
-//		spi_transfer(0);
-//		PORTB &= (~SHIFT_LATCH);
-
-		PORTB &= (~DECADE_CLOCK);
-	}
-}
-
-void scroll()
-{
-	int i;
-	for (i=0;i<6;i++)
-	{
-		char carry = (buffer[i][0]&0x80)?1:0;
-		buffer[i][0] = (buffer[i][0]<<1) | ((buffer[i][1]&0x80)?1:0);
-		buffer[i][1] = (buffer[i][1]<<1) | ((buffer[i][2]&0x80)?1:0);
-		buffer[i][2] = (buffer[i][2]<<1) | carry;
-	}
-}
-
-void scroll_big()
-{
-	int i;
-	for (i=0;i<6;i++)
-	{
-		char carry = (buffer[i][0]&0x80)?1:0;
-		buffer[i][0] = (buffer[i][0]<<1) | ((buffer[i][1]&0x80)?1:0);
-		buffer[i][1] = (buffer[i][1]<<1) | ((buffer[i][2]&0x80)?1:0);
-		buffer[i][2] = (buffer[i][2]<<1) | ((buffer[i][3]&0x80)?1:0);
-		buffer[i][3] = (buffer[i][3]<<1) | ((buffer[i][4]&0x80)?1:0);
-		buffer[i][4] = (buffer[i][4]<<1) | ((buffer[i][5]&0x80)?1:0);
-		buffer[i][5] = (buffer[i][5]<<1) | ((buffer[i][6]&0x80)?1:0);
-		buffer[i][6] = (buffer[i][6]<<1) | ((buffer[i][7]&0x80)?1:0);
-		buffer[i][7] = (buffer[i][7]<<1) | carry;
-	}
-}
-
-void _buffer(int i, unsigned char a, unsigned char b, unsigned char c)
-{
-	buffer[i][0] = a;
-	buffer[i][1] = b;
-	buffer[i][2] = c;
-}
-
-#define STATE_OPEN 0
-#define STATE_DATA 1
-#define STATE_CMD 2
-static char cur_state = 0;
-static unsigned char load_total = 3;
-static unsigned char load_count = 0;
-static char scrolling = 0;
-
-void handle_input()
-{
-	unsigned char input_byte;
-	if (uart_read_char(&input_byte))
-	{
-		switch (cur_state)
-		{
-			case STATE_OPEN:
-				if (input_byte == 'i')
-				{
-					cur_state = STATE_DATA;
-					load_count = 0;
-					load_total = 3;
-				}
-				if (input_byte == 'I')
-				{
-					cur_state = STATE_DATA;
-					load_count = 0;
-					load_total = 8;
-				}
-				if (input_byte == 's')
-				{
-					scroll();
-				}
-				if (input_byte == 'S')
-				{
-					scroll_big();
-				}
-				if (input_byte == 'B')
-				{
-					scrolling = 0;
-				}
-				if (input_byte == 'c')
-				{
-					scrolling = 1;
-				}
-				if (input_byte == 'C')
-				{
-					scrolling = 2;
-				}
-				break;
-			case STATE_DATA:
-				if (load_count < (load_total*6))
-				{
-					buffer[load_count / load_total][load_count % load_total] = input_byte;
-					load_count += 1;
-				}
-				else
-				{
-					cur_state = STATE_OPEN;
-				}
-				break;
-			default:
-				break;
-		}
-	}
-}
-
 int main()
 {
 	DDRB |= (DECADE_RESET | DECADE_CLOCK | SHIFT_CLOCK | SHIFT_DATA | SHIFT_LATCH); // PINS 8, 9, 10, 11, and 13 are all output
 
 	uart_init();
-//	i2c_init();
-
-	// Reset the decade counter
-	PORTB |= DECADE_RESET;
-	PORTB &= ~DECADE_RESET;
-
-	spi_init();
-
-	_buffer(0, 0x11, 0x11, 0x11);
-	_buffer(1, 0x22, 0x22, 0x22);
-	_buffer(2, 0x44, 0x44, 0x44);
-	_buffer(3, 0x44, 0x44, 0x44);
-	_buffer(4, 0x22, 0x22, 0x22);
-	_buffer(5, 0x11, 0x11, 0x11);
-
-	unsigned char count_1=0,count_2=0;
 
 	while (1)
 	{
-		count_1++;
-
-		display_buffer();
-		if (!count_1 & scrolling) {count_2++;}
-		if ((count_2>50) & scrolling) {count_2=0; (scrolling == 1)?scroll():scroll_big();}
-//		control();
-		handle_input();
+		char uc = uart_getchar();
+		uart_putchar(uc);
+		uart_putchar('\r');
+		uart_putchar('\n');
 	}
 }
